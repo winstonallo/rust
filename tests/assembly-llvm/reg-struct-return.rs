@@ -1,5 +1,8 @@
-// Tests that -Zreg-struct-return changes ABI for small struct returns
-// from hidden-pointer convention to register-return convention on x86.
+//! Tests that -Zreg-struct-return changes ABI for small struct returns
+//! from hidden-pointer convention to register-return on x86_32.
+//! This test covers:
+//! * Direct struct construction, verifying register return versus hidden pointer
+//! * External function calls returning structs, verifying ABI mismatch handling
 //@ add-core-stubs
 //@ assembly-output: emit-asm
 //@ compile-flags: -O --target=i686-unknown-linux-gnu -Crelocation-model=static
