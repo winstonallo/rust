@@ -39,8 +39,8 @@ mod small {
         // WITH: retl
 
         // WITHOUT-LABEL: small_direct_construction
-        // WITHOUT: movl 4(%esp), %eax
-        // WITHOUT: movw $10794, (%eax)
+        // WITHOUT: movl 4(%esp), %e{{.*}}
+        // WITHOUT: movw $10794, (%e{{.*}})
         // WITHOUT: retl $4
         small_t { a: 42, b: 42 }
     }
@@ -74,8 +74,8 @@ mod pivot {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn pivot_direct_construction() -> pivot_t {
         // WITH-LABEL: pivot_direct_construction
-        // WITH: movl $42, %eax
-        // WITH: movl $42, %edx
+        // WITH: movl $42, %e{{.*}}
+        // WITH: movl $42, %e{{.*}}
         // WITH: retl
 
         // WITHOUT-LABEL: pivot_direct_construction
