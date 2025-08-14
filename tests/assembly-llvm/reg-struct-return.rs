@@ -1,4 +1,5 @@
-// Test the reg-struct-return ABI.
+// Tests that -Zreg-struct-return changes ABI for small struct returns
+// from hidden-pointer convention to register-return convention on x86.
 //@ add-core-stubs
 //@ assembly-output: emit-asm
 //@ compile-flags: -O --target=i686-unknown-linux-gnu -Crelocation-model=static
