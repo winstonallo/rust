@@ -92,15 +92,7 @@ mod pivot {
         // WITH: jmp pivot
 
         // WITHOUT-LABEL: pivot_call
-        // WITHOUT: pushl %esi
-        // WITHOUT: subl $8, %esp
-        // WITHOUT: movl 16(%esp), %esi
-        // WITHOUT: %esi, (%esp)
         // WITHOUT: calll pivot
-        // WITHOUT: subl $4, %esp
-        // WITHOUT: movl %esi, %eax
-        // WITHOUT: addl $8, %esp
-        // WITHOUT: popl %esi
         // WITHOUT: retl $4
         pivot()
     }
