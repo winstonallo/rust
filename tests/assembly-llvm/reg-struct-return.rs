@@ -18,48 +18,135 @@
 extern crate minicore;
 use minicore::*;
 
-struct div_t {
-    quot: i32,
-    rem: i32,
+// Verifies ABI changes for small struct, where both fields fit into one register.
+// WITH is expected to use register return, WITHOUT should use hidden pointer.
+mod small {
+    struct small_t {
+        a: i8,
+        b: i8,
+    }
+
+    unsafe extern "C" {
+        fn small() -> small_t;
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn small_direct_construction() -> small_t {
+        // (42 << 8) | 42 = 10794
+
+        // WITH-LABEL: small_direct_construction
+        // WITH: movw $10794, %ax
+        // WITH: retl
+
+        // WITHOUT-LABEL: small_direct_construction
+        // WITHOUT: movl 4(%esp), %eax
+        // WITHOUT: movw $10794, (%eax)
+        // WITHOUT: retl $4
+        small_t { a: 42, b: 42 }
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn small_call() -> small_t {
+        // WITH-LABEL: small_call
+        // WITH: jmp small
+
+        // WITHOUT-LABEL: small_call
+        // WITHOUT: calll small
+        // WITHOUT: retl $4
+        small()
+    }
 }
 
-unsafe extern "C" {
-    fn div(numerator: i32, denominator: i32) -> div_t;
+// Verifies ABI changes for a struct of size 8, which is the maximum size
+// for reg-struct-return.
+// WITH is expected to still use register return, WITHOUT should use hidden
+// pointer.
+mod pivot {
+    struct pivot_t {
+        a: i32,
+        b: i32,
+    }
+
+    unsafe extern "C" {
+        fn pivot() -> pivot_t;
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn pivot_direct_construction() -> pivot_t {
+        // WITH-LABEL: pivot_direct_construction
+        // WITH: movl $42, %eax
+        // WITH: movl $42, %edx
+        // WITH: retl
+
+        // WITHOUT-LABEL: pivot_direct_construction
+        // WITHOUT: movl 4(%esp), %e{{.*}}
+        // WITHOUT: movl $42, (%e{{.*}})
+        // WITHOUT: movl $42, 4(%e{{.*}})
+        // WITHOUT: retl $4
+        pivot_t { a: 42, b: 42 }
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn pivot_call() -> pivot_t {
+        // WITH-LABEL: pivot_call
+        // WITH: jmp pivot
+
+        // WITHOUT-LABEL: pivot_call
+        // WITHOUT: pushl %esi
+        // WITHOUT: subl $8, %esp
+        // WITHOUT: movl 16(%esp), %esi
+        // WITHOUT: %esi, (%esp)
+        // WITHOUT: calll pivot
+        // WITHOUT: subl $4, %esp
+        // WITHOUT: movl %esi, %eax
+        // WITHOUT: addl $8, %esp
+        // WITHOUT: popl %esi
+        // WITHOUT: retl $4
+        pivot()
+    }
 }
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn direct_construction(numerator: i32, denominator: i32) -> div_t {
-    // WITH-LABEL: direct_construction
-    // WITH: movl $42, %eax
-    // WITH: movl $42, %edx
-    // WITH: retl
+// Verifies ABI changes for a struct of size 12, which is larger than the
+// maximum size for reg-struct-return (8 bytes).
+// Here, both WITH and WITHOUT should use the hidden pointer convention.
+mod large {
+    struct large_t {
+        a: i32,
+        b: i32,
+        c: i32,
+    }
 
-    // WITHOUT-LABEL: direct_construction
-    // WITHOUT: movl 4(%esp), %eax
-    // WITHOUT: movl $42, (%eax)
-    // WITHOUT: movl $42, 4(%eax)
-    // WITHOUT: retl $4
-    div_t { quot: 42, rem: 42 }
-}
+    unsafe extern "C" {
+        fn large() -> large_t;
+    }
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn builtin_call(numerator: i32, denominator: i32) -> div_t {
-    // WITH-LABEL: builtin_call
-    // WITH: jmp div
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn large_direct_construction() -> large_t {
+        // WITH-LABEL: large_direct_construction
+        // WITH: movl 4(%esp), %e{{.*}}
+        // WITH: movl $42, (%e{{.*}})
+        // WITH: movl $42, 4(%e{{.*}})
+        // WITH: movl $42, 8(%e{{.*}})
+        // WITH: retl $4
 
-    // WITHOUT-LABEL: builtin_call
-    // WITHOUT: pushl %esi
-    // WITHOUT: subl $8, %esp
-    // WITHOUT: movl 16(%esp), %esi
-    // WITHOUT: subl $4, %esp
-    // WITHOUT: pushl 28(%esp)
-    // WITHOUT: pushl 28(%esp)
-    // WITHOUT: pushl %esi
-    // WITHOUT: calll div
-    // WITHOUT: addl $12, %esp
-    // WITHOUT: movl %esi, %eax
-    // WITHOUT: addl $8, %esp
-    // WITHOUT: popl %esi
-    // WITHOUT: retl $4
-    div(numerator, denominator)
+        // WITHOUT-LABEL: large_direct_construction
+        // WITHOUT: movl 4(%esp), %e{{.*}}
+        // WITHOUT: movl $42, (%e{{.*}})
+        // WITHOUT: movl $42, 4(%e{{.*}})
+        // WITHOUT: movl $42, 8(%e{{.*}})
+        // WITHOUT: retl $4
+        large_t { a: 42, b: 42, c: 42 }
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn large_call() -> large_t {
+        // WITH-LABEL: large_call
+        // WITH: calll large
+        // WITH: retl $4
+
+        // WITHOUT-LABEL: large_call
+        // WITHOUT: calll large
+        // WITHOUT: retl $4
+        large()
+    }
 }
